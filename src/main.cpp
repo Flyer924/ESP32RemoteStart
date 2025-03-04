@@ -23,15 +23,15 @@
  ******************************************************************************/
 
 #include <WiFi.h>
-#include <dotenv.h>
+#include <env.h>
 
 /*******************************************************************************
  * Program Settings
  ******************************************************************************/
 
 // Replace with your network credentials
-const char *ssid = NULL;
-const char *password = NULL;
+const char *ssid = ESP32_WIFI_SSID;
+const char *password = ESP32_WIFI_PASSWORD;
 // Define server timeout in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
 
@@ -73,13 +73,10 @@ void processHeaderRequest(String &header);
  ******************************************************************************/
 void setup()
 {
-    //Load .env file and get wifi ssid and password
-    env_load("./.env", true);
-    ssid = getenv("ESP32_WIFI_SSID");
-    password = getenv("ESP32_WIFI_PASSWORD");
-
     Serial.begin(115200);
     // Connect to Wi-Fi network with SSID and password
+#if defined ESP32_WIFI_SSID
+#if defined ESP32_WIFI_PASSWORD
     Serial.print("Connecting to ");
     Serial.println(ssid);
     WiFi.begin(ssid, password);
@@ -94,10 +91,16 @@ void setup()
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
     server.begin();
+#else
+    Serial.println("No ESP32_WIFI_PASSWORD environment variable")
+#endif
+#else
+    Serial.println("No ESP32_WIFI_SSID environment variable")
+#endif
 
-    //Pin setup last because the ExtraVCC pin is also the LED pin (physical indicator
-    //of when the setup function is done)
-    // setup pins
+    // Pin setup last because the ExtraVCC pin is also the LED pin (physical indicator
+    // of when the setup function is done)
+    //  setup pins
     pinMode(TOGGLE_PIN, OUTPUT);
     pinMode(BUTTON_INPUT, INPUT);
     pinMode(EXTRA_VCC, OUTPUT);
