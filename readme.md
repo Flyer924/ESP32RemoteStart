@@ -32,3 +32,7 @@ Once you've made `src/env.h` and setup the hardware correctly (Maybe I'll make a
 ## Problems
 
 When I was setting up the wiring I noticed that the Power Button sensing wires (when not fully connected and just dangling) seemed to trigger really easily. I'm guessing that if you plug in those two wires they sort of act like antennas. Maybe this could be fixed in code or using... a pull down resistor?, but the issue seems to be mostly resolved once the system is fully connected (the issue is exacerbated the longer the wires are, though).
+
+## Bug Fixes
+
+- Fixed bug where ESP32 would not reconnect to wifi if disconnected

@@ -26,6 +26,13 @@
 #include <env.h>
 
 /*******************************************************************************
+ * State Options
+ ******************************************************************************/
+
+#define NORMAL_OPERATION 1
+#define CONNECTING_WIFI 2
+
+/*******************************************************************************
  * Program Settings
  ******************************************************************************/
 
@@ -46,6 +53,13 @@ String header;
 unsigned long currentTime = millis();
 // Previous time
 unsigned long previousTime = 0;
+// Current state
+unsigned long current_state = CONNECTING_WIFI;
+// Wifi Reconnection Timer
+unsigned long lastAttemptedWifiReconnection = 0;
+// retry every minute
+unsigned long wifiRetryDelay = 60000ul;
+bool previouslyConnected = false;
 
 /*******************************************************************************
  * Program Pins
@@ -67,6 +81,9 @@ const int EXTRA_VCC = 2;
  ******************************************************************************/
 void sendCSS(WiFiClient &client);
 void processHeaderRequest(String &header);
+void checkForWebRequests();
+void checkForPhysicalButtonPress();
+void connectToWifi();
 
 /*******************************************************************************
  * Initial Setup
@@ -74,28 +91,12 @@ void processHeaderRequest(String &header);
 void setup()
 {
     Serial.begin(115200);
-    // Connect to Wi-Fi network with SSID and password
-#if defined ESP32_WIFI_SSID
-#if defined ESP32_WIFI_PASSWORD
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
-    // Print local IP address and start web server
-    Serial.println("");
-    Serial.println("WiFi connected.");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    server.begin();
-#else
-    Serial.println("No ESP32_WIFI_PASSWORD environment variable")
+    // Check for wifi password and ssid
+#ifndef ESP32_WIFI_PASSWORD
+    Serial.println("No ESP32_WIFI_PASSWORD environment variable");
 #endif
-#else
-    Serial.println("No ESP32_WIFI_SSID environment variable")
+#ifndef ESP32_WIFI_SSID
+    Serial.println("No ESP32_WIFI_SSID environment variable");
 #endif
 
     // Pin setup last because the ExtraVCC pin is also the LED pin (physical indicator
@@ -114,6 +115,59 @@ void setup()
  ******************************************************************************/
 void loop()
 {
+    //check for wifi connected
+    if (WiFi.status() != WL_CONNECTED) {
+        current_state = CONNECTING_WIFI;
+    }
+    else {
+        current_state = NORMAL_OPERATION;
+    }
+
+    switch (current_state) {
+        case CONNECTING_WIFI:
+            connectToWifi();
+            break;
+        case NORMAL_OPERATION:
+            checkForPhysicalButtonPress();
+            checkForWebRequests();
+            break;
+        default:
+            Serial.println("Invalid state");
+            break;
+    }
+}
+
+/*******************************************************************************
+ * Extra Functions
+ ******************************************************************************/
+
+void connectToWifi() {
+    if (!previouslyConnected || millis() - lastAttemptedWifiReconnection > wifiRetryDelay) {
+        previouslyConnected = true;
+        WiFi.disconnect();
+        lastAttemptedWifiReconnection = millis();
+        Serial.print("Connecting to ");
+        Serial.println(ssid);
+        WiFi.begin(ssid, password);
+        while (WiFi.status() != WL_CONNECTED)
+        {
+            delay(500);
+            Serial.print(".");
+            if (millis() - lastAttemptedWifiReconnection > wifiRetryDelay) {
+                Serial.println("Connecting to wifi took over 1 minute: Failed. Will attempt to retry");
+                return;
+            }
+        }
+        // Print local IP address and start web server
+        Serial.println("");
+        Serial.println("WiFi connected.");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+        server.begin();
+    }
+}
+
+void checkForPhysicalButtonPress() {
     // Check for Physical Button press
     // check if button is being pressed
     int button_state = digitalRead(BUTTON_INPUT);
@@ -130,7 +184,9 @@ void loop()
     }
     // else if the button is not pressed and it is off, do nothing
     // else if the button is pressed and it in on, do nothing
+}
 
+void checkForWebRequests() {
     // Check for Server Usage
     //  Listen for incoming clients
     WiFiClient client = server.available();
@@ -208,9 +264,6 @@ void loop()
     Serial.println("");
 }
 
-/*******************************************************************************
- * Extra Functions
- ******************************************************************************/
 void sendCSS(WiFiClient &client)
 {
     // CSS to style the on/off buttons
