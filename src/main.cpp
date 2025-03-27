@@ -60,6 +60,8 @@ unsigned long lastAttemptedWifiReconnection = 0;
 // retry every minute
 unsigned long wifiRetryDelay = 60000ul;
 bool previouslyConnected = false;
+// value to keep track of wifi disconnects
+long wifiDisconnects = -1;
 
 /*******************************************************************************
  * Program Pins
@@ -159,6 +161,7 @@ void connectToWifi() {
             }
         }
         // Print local IP address and start web server
+        wifiDisconnects++;
         Serial.println("");
         Serial.println("WiFi connected.");
         Serial.println("IP address: ");
@@ -239,6 +242,9 @@ void checkForWebRequests() {
                 client.println("<p>PC Control</p>");
                 // If the togglePinState is on, it displays the ON button
                 client.println("<p><a href=\"/15/toggle\"><button class=\"button button-off\">Toggle PC</button></a></p>");
+                client.print("<p>Wifi Disconnects: ");
+                client.print(wifiDisconnects);
+                client.println("</p>");
                 client.println("</body></html>");
 
                 // The HTTP response ends with another blank line
