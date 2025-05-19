@@ -24,13 +24,7 @@
 
 #include <WiFi.h>
 #include <env.h>
-
-/*******************************************************************************
- * State Options
- ******************************************************************************/
-
-#define NORMAL_OPERATION 1
-#define CONNECTING_WIFI 2
+#include <thread>
 
 /*******************************************************************************
  * Program Settings
@@ -53,15 +47,18 @@ String header;
 unsigned long currentTime = millis();
 // Previous time
 unsigned long previousTime = 0;
-// Current state
-unsigned long current_state = CONNECTING_WIFI;
 // Wifi Reconnection Timer
 unsigned long lastAttemptedWifiReconnection = 0;
 // retry every minute
 unsigned long wifiRetryDelay = 60000ul;
+//I think the purpose of this is to make it attempt to connect immediately rather
+//than waiting for the wifiRetryDelay to elapse
 bool previouslyConnected = false;
 // value to keep track of wifi disconnects
 long wifiDisconnects = -1;
+// keeping track if already attempting to connect to wifi
+bool wifiThreadActive = false;
+std::thread* wifiThread = nullptr;
 
 /*******************************************************************************
  * Program Pins
@@ -117,26 +114,27 @@ void setup()
  ******************************************************************************/
 void loop()
 {
-    //check for wifi connected
-    if (WiFi.status() != WL_CONNECTED) {
-        current_state = CONNECTING_WIFI;
+    //If the wifi is connected, check for web requests
+    if (WiFi.status() == WL_CONNECTED) {
+        checkForWebRequests();
     }
-    else {
-        current_state = NORMAL_OPERATION;
-    }
-
-    switch (current_state) {
-        case CONNECTING_WIFI:
-            connectToWifi();
-            break;
-        case NORMAL_OPERATION:
-            checkForPhysicalButtonPress();
-            checkForWebRequests();
-            break;
-        default:
-            Serial.println("Invalid state");
-            break;
-    }
+    //try to join and delete the thread if active
+    //else if (wifiThread != nullptr) {
+    //    if (wifiThread->joinable()) {
+    //        wifiThread->join();
+    //        delete wifiThread;
+    //        wifiThread = nullptr;
+    //    }
+    //}
+    ////else the thread is null, so create the wifi thread to attempt to conect
+    //else {
+    //    //this is done in another thread so it doesn't block checking for physical
+    //    //button presses
+    //    wifiThread = new std::thread(connectToWifi);
+    //    wifiThread->detach();
+    //}
+    //always check for physical button presses
+    checkForPhysicalButtonPress();
 }
 
 /*******************************************************************************
@@ -144,7 +142,8 @@ void loop()
  ******************************************************************************/
 
 void connectToWifi() {
-    if (!previouslyConnected || millis() - lastAttemptedWifiReconnection > wifiRetryDelay) {
+    //check if attempted connection within retry delay or haven't ever connected
+    if (millis() - lastAttemptedWifiReconnection > wifiRetryDelay || !previouslyConnected) {
         previouslyConnected = true;
         WiFi.disconnect();
         lastAttemptedWifiReconnection = millis();
@@ -161,6 +160,8 @@ void connectToWifi() {
             }
         }
         // Print local IP address and start web server
+        //wifi disconnect count is only incremented on successful connection and
+        //disconnection
         wifiDisconnects++;
         Serial.println("");
         Serial.println("WiFi connected.");
