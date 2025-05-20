@@ -1,9 +1,5 @@
 # ESP32 Remote Start
 
-CURRENTLY BROKEN (for a working version go to commit bda686c791b9a252c942e256484db01cdf313a89)
-*Yes, I know I should have done my changes in a branch*
-\*the physical button presses work but the web server part does not
-
 This is my personal project to turn my esp32 into a remote start for my desktop PC. It is not super well documented (maybe I'll try to fix that in the future) but I wrote it a couple of months ago and I don't have the energy to properly do it now.
 
 So, what the project does is host a wifi server on an ESP32 (picture below of the webpage) as well as forwarding physical power button presses to the PC. To be clear, you can turn the PC on by pressing the button on the website or by pressing the physical power button on the computer. Note this is a Platform.io project.
@@ -35,7 +31,7 @@ src/env.h
 #endif
 ```
 
-Once you've made `src/env.h` and setup the hardware correctly (maybe I'll make a diagram one day), you should be able to upload the code and it should work.
+Once you've made `src/env.h` and setup the hardware correctly, you should be able to upload the code and it should work.
 
 ## Problems
 
@@ -44,3 +40,4 @@ When I was setting up the wiring I noticed that the Power Button sensing wires (
 ## Bug Fixes
 
 - Fixed bug where ESP32 would not reconnect to wifi if disconnected
+- Fixed bug where ESP32 would not detect physical button presses if wifi was disconnected (like if you changed wifi)

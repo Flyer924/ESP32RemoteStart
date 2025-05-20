@@ -57,8 +57,6 @@ unsigned long wifiRetryDelay = 60000ul;
 bool previouslyConnected = false;
 // value to keep track of wifi disconnects
 long wifiDisconnects = -1;
-// Check for physical button presses in separate thread
-TaskHandle_t PhysicalButtonTask;
 
 /*******************************************************************************
  * Program Pins
@@ -81,7 +79,7 @@ const int EXTRA_VCC = 2;
 void sendCSS(WiFiClient &client);
 void processHeaderRequest(String &header);
 void checkForWebRequests();
-void checkForPhysicalButtonPress(void *parameter);
+void handlePhysicalButtonPress();
 void connectToWifi();
 
 /*******************************************************************************
@@ -108,18 +106,7 @@ void setup()
     digitalWrite(TOGGLE_PIN, LOW);
     digitalWrite(EXTRA_VCC, HIGH);
 
-    //setup physical button presses in separate thread so it is always active
-    //I tried to do the server stuff in a separate thread and it didn't work? Though
-    //that was only using std::thread() and not xTaskCreatePinnedToCore()
-    xTaskCreatePinnedToCore(
-        checkForPhysicalButtonPress,
-        "Physical Button Handler",
-        10000, 
-        NULL, 
-        1,
-        &PhysicalButtonTask, 
-        1
-    );
+    attachInterrupt(BUTTON_INPUT, handlePhysicalButtonPress, CHANGE);
 }
 
 /*******************************************************************************
@@ -171,25 +158,10 @@ void connectToWifi() {
     }
 }
 
-void checkForPhysicalButtonPress(void *parameter) {
-    // Check for Physical Button press
-    while (true) {
-        // check if button is being pressed
-        int button_state = digitalRead(BUTTON_INPUT);
-        int input_state = digitalRead(TOGGLE_PIN);
-        // if button pressed and toggle off, turn it on
-        if (button_state == HIGH && input_state == LOW)
-        {
-            digitalWrite(TOGGLE_PIN, HIGH);
-        }
-        // if button not pressed and toggle on, turn it off
-        else if (button_state == LOW && input_state == HIGH)
-        {
-            digitalWrite(TOGGLE_PIN, LOW);
-        }
-        // else if the button is not pressed and it is off, do nothing
-        // else if the button is pressed and it in on, do nothing
-    }
+void handlePhysicalButtonPress() {
+    // Mirror the button press state with the toggle pin state
+    int button_state = digitalRead(BUTTON_INPUT);
+    digitalWrite(TOGGLE_PIN, button_state);
 }
 
 void checkForWebRequests() {
