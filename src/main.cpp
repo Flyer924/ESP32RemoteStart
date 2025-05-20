@@ -25,6 +25,7 @@
 #include <WiFi.h>
 #include <env.h>
 #include <thread>
+#include <pthread.h>
 
 /*******************************************************************************
  * Program Settings
@@ -56,9 +57,8 @@ unsigned long wifiRetryDelay = 60000ul;
 bool previouslyConnected = false;
 // value to keep track of wifi disconnects
 long wifiDisconnects = -1;
-// keeping track if already attempting to connect to wifi
-bool wifiThreadActive = false;
-std::thread* wifiThread = nullptr;
+// Check for physical button presses in separate thread
+TaskHandle_t PhysicalButtonTask;
 
 /*******************************************************************************
  * Program Pins
@@ -81,7 +81,7 @@ const int EXTRA_VCC = 2;
 void sendCSS(WiFiClient &client);
 void processHeaderRequest(String &header);
 void checkForWebRequests();
-void checkForPhysicalButtonPress();
+void checkForPhysicalButtonPress(void *parameter);
 void connectToWifi();
 
 /*******************************************************************************
@@ -107,34 +107,34 @@ void setup()
     // Set degault states of pins
     digitalWrite(TOGGLE_PIN, LOW);
     digitalWrite(EXTRA_VCC, HIGH);
+
+    //setup physical button presses in separate thread so it is always active
+    //I tried to do the server stuff in a separate thread and it didn't work? Though
+    //that was only using std::thread() and not xTaskCreatePinnedToCore()
+    xTaskCreatePinnedToCore(
+        checkForPhysicalButtonPress,
+        "Physical Button Handler",
+        10000, 
+        NULL, 
+        1,
+        &PhysicalButtonTask, 
+        1
+    );
 }
 
 /*******************************************************************************
  * Main Loop
  ******************************************************************************/
+
 void loop()
 {
-    //If the wifi is connected, check for web requests
+    //handle wifi requests
     if (WiFi.status() == WL_CONNECTED) {
         checkForWebRequests();
     }
-    //try to join and delete the thread if active
-    //else if (wifiThread != nullptr) {
-    //    if (wifiThread->joinable()) {
-    //        wifiThread->join();
-    //        delete wifiThread;
-    //        wifiThread = nullptr;
-    //    }
-    //}
-    ////else the thread is null, so create the wifi thread to attempt to conect
-    //else {
-    //    //this is done in another thread so it doesn't block checking for physical
-    //    //button presses
-    //    wifiThread = new std::thread(connectToWifi);
-    //    wifiThread->detach();
-    //}
-    //always check for physical button presses
-    checkForPhysicalButtonPress();
+    else {
+        connectToWifi();
+    }
 }
 
 /*******************************************************************************
@@ -171,23 +171,25 @@ void connectToWifi() {
     }
 }
 
-void checkForPhysicalButtonPress() {
+void checkForPhysicalButtonPress(void *parameter) {
     // Check for Physical Button press
-    // check if button is being pressed
-    int button_state = digitalRead(BUTTON_INPUT);
-    int input_state = digitalRead(TOGGLE_PIN);
-    // if button pressed and toggle off, turn it on
-    if (button_state == HIGH && input_state == LOW)
-    {
-        digitalWrite(TOGGLE_PIN, HIGH);
+    while (true) {
+        // check if button is being pressed
+        int button_state = digitalRead(BUTTON_INPUT);
+        int input_state = digitalRead(TOGGLE_PIN);
+        // if button pressed and toggle off, turn it on
+        if (button_state == HIGH && input_state == LOW)
+        {
+            digitalWrite(TOGGLE_PIN, HIGH);
+        }
+        // if button not pressed and toggle on, turn it off
+        else if (button_state == LOW && input_state == HIGH)
+        {
+            digitalWrite(TOGGLE_PIN, LOW);
+        }
+        // else if the button is not pressed and it is off, do nothing
+        // else if the button is pressed and it in on, do nothing
     }
-    // if button not pressed and toggle on, turn it off
-    else if (button_state == LOW && input_state == HIGH)
-    {
-        digitalWrite(TOGGLE_PIN, LOW);
-    }
-    // else if the button is not pressed and it is off, do nothing
-    // else if the button is pressed and it in on, do nothing
 }
 
 void checkForWebRequests() {
