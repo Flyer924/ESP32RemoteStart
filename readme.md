@@ -1,5 +1,9 @@
 # ESP32 Remote Start
 
+CURRENTLY BROKEN (for a working version go to commit bda686c791b9a252c942e256484db01cdf313a89)
+*Yes, I know I should have done my changes in a branch*
+\*the physical button presses work but the web server part does not
+
 This is my personal project to turn my esp32 into a remote start for my desktop PC. It is not super well documented (maybe I'll try to fix that in the future) but I wrote it a couple of months ago and I don't have the energy to properly do it now.
 
 So, what the project does is host a wifi server on an ESP32 (picture below of the webpage) as well as forwarding physical power button presses to the PC. To be clear, you can turn the PC on by pressing the button on the website or by pressing the physical power button on the computer. Note this is a Platform.io project.
@@ -8,9 +12,13 @@ So, what the project does is host a wifi server on an ESP32 (picture below of th
 
 ## Project Explanation 
 
-In terms of hardware, I'm using an ESP32, a relay, and a few wires. As you might know, how the power button on a regular PC works is by connecting two pins together (which triggers the PC to turn on). So I don't have to deal with properly connecting two circuit boards (my ESP32 and my motherboard), I'm using a relay (a circuit board that can programatically connect two wires together). When the ESP32 recieves the signal to toggle the PC, it connects the two pins on the PC by triggering the relay for 0.5 seconds. The pin that triggers the relay is pin 15 labeled `TOGGLE_PIN` in the code.
+Reference picture below with my explanation.
+
+In terms of hardware, I'm using an ESP32, a relay, and a few wires. As you might know, how the power button on a regular PC works is by connecting two pins together (which triggers the PC to turn on). So I don't have to deal with properly connecting two circuit boards (my ESP32 and my motherboard), I'm using a relay (a circuit board that can programatically connect two wires together). When the ESP32 recieves the signal to toggle the PC, it connects the two pins on the PC by triggering the relay for 0.5 seconds. The pin that triggers the relay is pin 15 labeled `TOGGLE_PIN` in the code (this pin is incorrectly labeled as 22 in the picture below).
 
 In terms of connecting the original power button on the PC, it's convenient that it is just a relay controlled by humans. What the code does is set one pin to 3.3 volts and another pin to detect that voltage. Those two pins are connected to the power button and when it is pressed, it connects the two pins and the signal is detected by the ESP32. For every instant the pins are connected, the code sends the signal to the relay to connect. The two pins I'm using for this are `BUTTON_INPUT` (pin 4) and `EXTRA_VCC` (pin 2) in the code.
+
+![alt text](WiringDiagram.jpg)
 
 ## Setup
 
